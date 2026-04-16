@@ -1,0 +1,15 @@
+{
+  "name": "pg-fabric-bridge",
+  "version": "1.0.0",
+  "description": "Bridge to listen to pgaudit logs and submit to Fabric",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "fabric-network": "^2.2.14",
+    "fabric-ca-client": "^2.2.14",
+    "tail": "^2.2.6",
+    "csv-parse": "^5.3.3"
+  }
+}
