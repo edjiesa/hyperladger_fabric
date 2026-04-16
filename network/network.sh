@@ -260,7 +260,18 @@ function networkDown() {
   rm -rf "${NETWORK_ROOT_DIR}/channel-artifacts"
 
   infoln "Removing all persistent volumes (if any remain)..."
-  docker volume rm $(docker volume ls -q | grep -E 'orderer|peer|couch|pgdata|wallet') 2>/dev/null || true
+  # Remove named volumes matching any project prefix (compose, fabric-network, etc.)
+  VOLS=$(docker volume ls -q | grep -E '(orderer|peer|couchdb|pgdata|wallet|audit|postgres|explorer)\.(example\.com|instance)')
+  VOLS2=$(docker volume ls -q | grep -E '^(compose_|fabric-network_|fabric_)(orderer|peer|couch|explorer|postgres|audit)')
+  ALL_VOLS="${VOLS} ${VOLS2}"
+  if [ -n "$(echo "${ALL_VOLS}" | tr -d ' ')" ]; then
+    docker volume rm ${ALL_VOLS} 2>/dev/null || true
+  fi
+
+  # Remove dangling/anonymous volumes created by Fabric Docker image VOLUME directives
+  # These persist MSP/ledger state and cause 'malformed creator' errors on redeploy
+  infoln "Pruning dangling anonymous volumes..."
+  docker volume prune -f 2>/dev/null || true
 
   successln "Network is DOWN. All artifacts and volumes cleaned."
 }

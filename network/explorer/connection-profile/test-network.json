@@ -11,8 +11,8 @@
       }
     },
     "adminCredential": {
-      "id": "admin",
-      "password": "adminpw"
+      "id": "org1admin",
+      "password": "org1adminpw"
     }
   },
   "channels": {

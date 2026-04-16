@@ -1,18 +1,46 @@
 # Hyperledger Fabric Audit Infrastructure
 
-Repositori lengkap infrastruktur **Hyperledger Fabric 2.5.x production-like** dengan 2 Organisasi, consensus Raft, CouchDB, PostgreSQL pgAudit, Middleware Bridge, dan Hyperledger Explorer.
+Repositori infrastruktur **Hyperledger Fabric 2.5.4 production-like** untuk keperluan Tesis Akademik. Mengimplementasikan jaringan blockchain *permissioned* dengan 2 Organisasi, consensus Raft (3 node), CouchDB sebagai state database, PostgreSQL + pgAudit sebagai off-chain audit log, Middleware Bridge asinkron, dan Hyperledger Explorer sebagai dashboard visual.
 
 ---
 
 ## Prasyarat Wajib
 
-| Software | Version | Link |
+| Software | Version | Keterangan |
 |---|---|---|
 | Docker Desktop (WSL2 enabled) | ≥ 4.x | https://www.docker.com/products/docker-desktop/ |
 | WSL2 + Ubuntu | Versi 2 | `wsl --install -d Ubuntu` |
 | Node.js (untuk Middleware) | ≥ 16 LTS | https://nodejs.org |
 
-> **Penting untuk Windows**: Semua perintah di bawah ini harus dieksekusi dari dalam terminal **WSL2 (Ubuntu)**, bukan PowerShell atau CMD.
+> [!IMPORTANT]
+> Semua perintah **harus dieksekusi dari dalam terminal WSL2 (Ubuntu)**, bukan PowerShell atau CMD. Docker Desktop harus dalam keadaan **running** dengan integrasi WSL2 diaktifkan sebelum menjalankan skrip apapun.
+
+---
+
+## Arsitektur Sistem
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    fabric_test (Docker Network)          │
+│                                                          │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐               │
+│  │Orderer 1 │  │Orderer 2 │  │Orderer 3 │  (Raft)        │
+│  │:7050/7053│  │:8050/8053│  │:9050/9053│               │
+│  └──────────┘  └──────────┘  └──────────┘               │
+│                                                          │
+│  ┌──────────────────┐   ┌──────────────────┐            │
+│  │  Peer0 Org1      │   │  Peer0 Org2      │            │
+│  │  :7051           │   │  :9051           │            │
+│  │  └─ CouchDB :5984│   │  └─ CouchDB :7984│            │
+│  └──────────────────┘   └──────────────────┘            │
+│                                                          │
+│  ┌──────────┐  ┌──────────────┐  ┌─────────────────┐   │
+│  │   CLI    │  │  PostgreSQL  │  │    Explorer DB   │   │
+│  │ (tools)  │  │  pgAudit     │  │   + Explorer UI  │   │
+│  │          │  │  :5432       │  │   :8080          │   │
+│  └──────────┘  └──────────────┘  └─────────────────┘   │
+└─────────────────────────────────────────────────────────┘
+```
 
 ---
 
@@ -20,6 +48,9 @@ Repositori lengkap infrastruktur **Hyperledger Fabric 2.5.x production-like** de
 
 ```text
 hyperledger_fabric/
+├── .gitignore
+├── README.md
+├── context.md                       # Memo teknis & keputusan arsitektur
 ├── network/
 │   ├── .env                         # Versi image Fabric (2.5.4)
 │   ├── network.sh                   # Script utama (entry point)
@@ -29,19 +60,20 @@ hyperledger_fabric/
 │   │   ├── docker-compose-ca.yaml   # 3 Fabric CA (org1, org2, orderer)
 │   │   ├── docker-compose-test-net.yaml  # Orderers, Peers, CouchDB, CLI
 │   │   ├── docker-compose-pg.yaml   # PostgreSQL + pgAudit
-│   │   └── pg/                      # Dockerfile + config untuk pgAudit
+│   │   └── pg/                      # Dockerfile + init SQL + postgresql.conf
 │   ├── scripts/
 │   │   ├── registerEnroll.sh        # Generate crypto materials via CA
 │   │   └── createChannel.sh         # Dijalankan di dalam container CLI
 │   └── explorer/
 │       ├── config.json              # Konfigurasi Hyperledger Explorer
-│       ├── connection-profile/      # Profil koneksi Explorer ke Org1
+│       ├── connection-profile/
+│       │   └── test-network.json    # Profil koneksi Explorer ke Org1
 │       ├── docker-compose-explorer.yaml
 │       └── start-explorer.sh
 ├── chaincode/
 │   └── auditLog/                    # Smart Contract Node.js untuk audit log
 └── middleware/
-    ├── index.js                     # Bridge: PG log -> Fabric Gateway
+    ├── index.js                     # Bridge: PG log → Fabric Gateway
     └── package.json
 ```
 
@@ -49,130 +81,90 @@ hyperledger_fabric/
 
 ## Cara Instalasi & Menjalankan
 
-### Langkah 0: Buka Terminal WSL2 (Ubuntu)
-
-Di Windows, buka **Start** → cari **Ubuntu** → buka terminal. Kemudian masuk ke direktori proyek:
-
+### Langkah 1: Persiapan Terminal WSL2 & Izin
+Masuk ke terminal **Ubuntu (WSL2)** dan arahkan ke direktori network:
 ```bash
 cd /mnt/c/DATA/GITHUB/hyperladger_fabric/network
-```
-
-Berikan izin eksekusi satu kali:
-```bash
 chmod +x network.sh scripts/*.sh explorer/start-explorer.sh
+sudo apt install -y dos2unix && dos2unix network.sh scripts/*.sh explorer/start-explorer.sh
 ```
 
-Fix Windows line-endings (penting jika menggunakan Windows editor):
-```bash
-sudo apt install -y dos2unix
-dos2unix network.sh scripts/*.sh explorer/start-explorer.sh
-```
-
----
-
-### Langkah 1: Download Fabric Binaries (Hanya pertama kali)
-
+### Langkah 2: Install Fabric Binaries (Sekali saja)
 ```bash
 ./network.sh installBinaries
+# Tambahkan ke PATH agar bisa memanggil 'peer' atau 'osnadmin' dari manapun
+echo 'export PATH="/mnt/c/DATA/GITHUB/hyperladger_fabric/network/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc
 ```
 
-Tambahkan binary ke PATH agar bisa dipakai permanen:
+### Langkah 3: Deploy Jaringan Blockchain
 ```bash
-echo 'export PATH="$HOME/bin:/mnt/c/DATA/GITHUB/hyperladger_fabric/network/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
+./network.sh down          # Bersihkan state lama & volume
+./network.sh up            # Nyalakan CA, Peer, Orderer
+./network.sh createChannel   # Membuat channel 'mychannel'
 ```
 
----
-
-### Langkah 2: Nyalakan Jaringan Blockchain
-
-```bash
-./network.sh up
-```
-
-Proses ini akan:
-- ✅ Menyalakan 3 Fabric CA containers
-- ✅ Mendaftarkan & meng-enroll semua identitas (Admin, Peer, Orderer)
-- ✅ Men-generate genesis block `mychannel.block`
-- ✅ Menyalakan 3 Orderer + 2 Peers + 2 CouchDB
-
----
-
-### Langkah 3: Buat Channel dan Gabungkan Peer
-
-```bash
-./network.sh createChannel
-```
-
----
-
-### Langkah 4: Nyalakan Database Off-Chain (pgAudit)
-
+### Langkah 4: Nyalakan Database Audit (PostgreSQL)
 ```bash
 ./network.sh startPostgres
 ```
-Database PostgreSQL siap diakses di `localhost:5432`:
-- **User**: `admin` | **Password**: `adminpw` | **DB**: `offchaindb`
 
----
-
-### Langkah 5: Nyalakan Middleware (Log Bridge)
-
+### Langkah 5: Nyalakan Hyperledger Explorer (Dashboard Visual)
 ```bash
-cd /mnt/c/DATA/GITHUB/hyperladger_fabric/middleware
-npm install
-npm start
-```
-
----
-
-### Langkah 6: Buka Hyperledger Explorer (Dashboard Visual)
-
-```bash
-cd /mnt/c/DATA/GITHUB/hyperladger_fabric/network
 ./network.sh startExplorer
 ```
 
-> [!TIP]
-> **Otomasi Kredensial**: Script `./network.sh up` sekarang secara otomatis mendeteksi dan menyediakan Admin Private Key (`priv_sk`) untuk Explorer. Anda tidak perlu lagi melakukan copy-paste manual file secret key.
+### Langkah 6: Jalankan Middleware (Log Bridge)
+```bash
+cd /mnt/c/DATA/GITHUB/hyperladger_fabric/middleware
+npm install && npm start
+```
 
-Buka browser: **http://localhost:8080**
-- **Username**: `admin`
-- **Password**: `adminpw`
+---
+
+## 🔐 Informasi Login & Akses Cepat (Credentials)
+
+| Layanan | URL Akses | Username | Password |
+|---|---|---|---|
+| **Hyperledger Explorer** | [http://localhost:8080](http://localhost:8080) | `admin` | `adminpw` |
+| **PostgreSQL (Database)** | `localhost:5432` | `admin` | `adminpw` |
+| **CouchDB Org1 Admin** | [http://localhost:5984/_utils](http://localhost:5984/_utils) | `admin` | `adminpw` |
+| **CouchDB Org2 Admin** | [http://localhost:7984/_utils](http://localhost:7984/_utils) | `admin` | `adminpw` |
+
+> [!TIP]
+> **Database Name**: `offchaindb` (untuk PostgreSQL)  
+> **Channel Name**: `mychannel` (untuk Fabric)
+
+> [!CAUTION]
+> Perintah ini menghapus **semua** data: kontainer, volume Docker, dan folder `organizations/` (crypto materials). Ini adalah perilaku yang diinginkan — pastikan Anda memahami bahwa seluruh state jaringan akan terhapus dan harus dimulai ulang dari awal.
 
 ---
 
 ## Pemeliharaan & Troubleshooting
 
-### Nuclear Cleanup (Hard Reset)
-Jika Anda mengalami error **"access denied"** atau **"creator is malformed"** (biasanya karena ketidakcocokan sertifikat lama di Docker Volume), gunakan fitur pembersihan menyeluruh kami:
+### Error: "creator is malformed" / "unknown authority"
+Penyebab: Kontainer Peer/Orderer masih menyimpan **state volume lama** dari sertifikat yang berbeda dengan CA yang sekarang berjalan.
 
+**Solusi wajib**:
 ```bash
-./network.sh down
+./network.sh down   # Hapus semua (termasuk volume)
+./network.sh up     # Generate ulang dari nol
+./network.sh createChannel
 ```
-Fungsi ini akan menghapus:
-- Seluruh folder `organizations/` (Crypto materials)
-- Semua Docker Volumes (Peer, Orderer, CouchDB) terlepas dari prefix project-nya.
-- Semua kontainer terkait.
 
-### Error: Exit Code 255
-Jika kontainer tiba-tiba mati (status `Exited (255)`), ini biasanya disebabkan oleh resource limit pada Docker Desktop atau restart backend WSL2.
+### Error: "Exit Code 255" / Kontainer Mati Sendiri
+Penyebab: Resource limit pada Docker Desktop (RAM/CPU habis) atau restart backend WSL2.
+
 **Solusi**:
-1. Pastikan Docker Desktop sedang berjalan dan integrasi WSL2 aktif.
-2. Jalankan kembali `./network.sh up` untuk memastikan kontainer hidup kembali.
+1. Pastikan Docker Desktop berjalan dan integrasi WSL2 aktif.
+2. Tambah alokasi memori Docker Desktop (Settings → Resources → Memory, minimal 8GB).
+3. Jalankan `./network.sh up` untuk me-restart kontainer.
 
-### Error: Malformed Creator / Unknown Authority
-Ini terjadi jika kontainer Orderer/Peer masih membawa "ingatan" volume lama saat CA baru dinyalakan.
-**Solusi**: Pastikan Anda menjalankan `./network.sh down` (Nuclear Cleanup) sebelum melakukan deploy ulang dengan `./network.sh up`.
+### Error: Explorer "Default client peer is down"
+Penyebab: Explorer tidak bisa terhubung ke peer karena channel belum dibuat atau cert tidak cocok.
 
-
----
-
-### Mematikan Seluruh Network
-
-```bash
-./network.sh down
-```
+**Solusi**:
+1. Pastikan `./network.sh createChannel` sudah berhasil dijalankan.
+2. Jika masih gagal, lakukan Nuclear Cleanup dan deploy ulang.
 
 ---
 
@@ -183,13 +175,13 @@ Ini terjadi jika kontainer Orderer/Peer masih membawa "ingatan" volume lama saat
 | CA Org1 | 7054 | Fabric CA server |
 | CA Org2 | 8054 | Fabric CA server |
 | CA Orderer | 9054 | Fabric CA server |
-| Orderer 1 | 7050 / 7053 | gRPC / Admin |
-| Orderer 2 | 8050 / 8053 | gRPC / Admin |
-| Orderer 3 | 9050 / 9053 | gRPC / Admin |
-| Peer Org1 | 7051 | gRPC Peer |
-| Peer Org2 | 9051 | gRPC Peer |
-| CouchDB Org1 | 5984 | REST Admin |
-| CouchDB Org2 | 7984 | REST Admin |
+| Orderer 1 | 7050 / 7053 | gRPC / Admin (osnadmin) |
+| Orderer 2 | 8050 / 8053 | gRPC / Admin (osnadmin) |
+| Orderer 3 | 9050 / 9053 | gRPC / Admin (osnadmin) |
+| Peer Org1 | 7051 | gRPC Peer (endorser) |
+| Peer Org2 | 9051 | gRPC Peer (endorser) |
+| CouchDB Org1 | 5984 | REST Admin UI |
+| CouchDB Org2 | 7984 | REST Admin UI |
 | PostgreSQL | 5432 | psql / pgAdmin |
 | Explorer | 8080 | Web Dashboard |
 
