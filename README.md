@@ -84,18 +84,18 @@ hyperledger_fabric/
 ### Langkah 1: Clone Repositori dari GitHub
 Buka terminal **Ubuntu (WSL2)** dan clone repositori ini ke PC lokal Anda:
 ```bash
-# Pindah ke direktori tempat Anda ingin menyimpan project (contoh: /mnt/c/DATA/GITHUB/)
-cd /mnt/c/DATA/GITHUB/
+# Pindah ke direktori tempat Anda ingin menyimpan project (contoh: /opt/)
+cd /opt/
 # Clone repositori (ganti URL dengan URL repositori GitHub Anda yang sebenarnya)
 git clone https://github.com/USERNAME_ANDA/hyperladger_fabric.git
 cd hyperladger_fabric
 ```
-*(Catatan: Path pada langkah-langkah selanjutnya mengasumsikan Anda meng-clone ke `/mnt/c/DATA/GITHUB/hyperladger_fabric`. Sesuaikan jika Anda menyimpannya di lokasi berbeda.)*
+*(Catatan: Path pada langkah-langkah selanjutnya mengasumsikan Anda meng-clone ke `/opt/hyperladger_fabric`. Sesuaikan jika Anda menyimpannya di lokasi berbeda.)*
 
 ### Langkah 2: Persiapan Terminal WSL2 & Izin
 Arahkan ke direktori `network` dan berikan izin eksekusi pada skrip:
 ```bash
-cd /mnt/c/DATA/GITHUB/hyperladger_fabric/network
+cd /opt/hyperladger_fabric/network
 chmod +x network.sh scripts/*.sh explorer/start-explorer.sh
 sudo apt install -y dos2unix && dos2unix network.sh scripts/*.sh explorer/start-explorer.sh
 ```
@@ -104,7 +104,7 @@ sudo apt install -y dos2unix && dos2unix network.sh scripts/*.sh explorer/start-
 ```bash
 ./network.sh installBinaries
 # Tambahkan ke PATH agar bisa memanggil 'peer' atau 'osnadmin' dari manapun
-echo 'export PATH="/mnt/c/DATA/GITHUB/hyperladger_fabric/network/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc
+echo 'export PATH="/opt/hyperladger_fabric/network/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc
 ```
 
 ### Langkah 4: Deploy Jaringan Blockchain
@@ -126,7 +126,7 @@ echo 'export PATH="/mnt/c/DATA/GITHUB/hyperladger_fabric/network/bin:$PATH"' >> 
 
 ### Langkah 7: Jalankan Middleware (Log Bridge)
 ```bash
-cd /mnt/c/DATA/GITHUB/hyperladger_fabric/middleware
+cd /opt/hyperladger_fabric/middleware
 npm install && npm start
 ```
 
