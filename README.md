@@ -81,39 +81,50 @@ hyperledger_fabric/
 
 ## Cara Instalasi & Menjalankan
 
-### Langkah 1: Persiapan Terminal WSL2 & Izin
-Masuk ke terminal **Ubuntu (WSL2)** dan arahkan ke direktori network:
+### Langkah 1: Clone Repositori dari GitHub
+Buka terminal **Ubuntu (WSL2)** dan clone repositori ini ke PC lokal Anda:
+```bash
+# Pindah ke direktori tempat Anda ingin menyimpan project (contoh: /mnt/c/DATA/GITHUB/)
+cd /mnt/c/DATA/GITHUB/
+# Clone repositori (ganti URL dengan URL repositori GitHub Anda yang sebenarnya)
+git clone https://github.com/USERNAME_ANDA/hyperladger_fabric.git
+cd hyperladger_fabric
+```
+*(Catatan: Path pada langkah-langkah selanjutnya mengasumsikan Anda meng-clone ke `/mnt/c/DATA/GITHUB/hyperladger_fabric`. Sesuaikan jika Anda menyimpannya di lokasi berbeda.)*
+
+### Langkah 2: Persiapan Terminal WSL2 & Izin
+Arahkan ke direktori `network` dan berikan izin eksekusi pada skrip:
 ```bash
 cd /mnt/c/DATA/GITHUB/hyperladger_fabric/network
 chmod +x network.sh scripts/*.sh explorer/start-explorer.sh
 sudo apt install -y dos2unix && dos2unix network.sh scripts/*.sh explorer/start-explorer.sh
 ```
 
-### Langkah 2: Install Fabric Binaries (Sekali saja)
+### Langkah 3: Install Fabric Binaries (Sekali saja)
 ```bash
 ./network.sh installBinaries
 # Tambahkan ke PATH agar bisa memanggil 'peer' atau 'osnadmin' dari manapun
 echo 'export PATH="/mnt/c/DATA/GITHUB/hyperladger_fabric/network/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc
 ```
 
-### Langkah 3: Deploy Jaringan Blockchain
+### Langkah 4: Deploy Jaringan Blockchain
 ```bash
 ./network.sh down          # Bersihkan state lama & volume
 ./network.sh up            # Nyalakan CA, Peer, Orderer
 ./network.sh createChannel   # Membuat channel 'mychannel'
 ```
 
-### Langkah 4: Nyalakan Database Audit (PostgreSQL)
+### Langkah 5: Nyalakan Database Audit (PostgreSQL)
 ```bash
 ./network.sh startPostgres
 ```
 
-### Langkah 5: Nyalakan Hyperledger Explorer (Dashboard Visual)
+### Langkah 6: Nyalakan Hyperledger Explorer (Dashboard Visual)
 ```bash
 ./network.sh startExplorer
 ```
 
-### Langkah 6: Jalankan Middleware (Log Bridge)
+### Langkah 7: Jalankan Middleware (Log Bridge)
 ```bash
 cd /mnt/c/DATA/GITHUB/hyperladger_fabric/middleware
 npm install && npm start
