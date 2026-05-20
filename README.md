@@ -96,6 +96,7 @@ cd hyperladger_fabric
 Arahkan ke direktori `network` dan berikan izin eksekusi pada skrip:
 ```bash
 cd /opt/hyperladger_fabric/network
+cp .env.example .env
 chmod +x network.sh scripts/*.sh explorer/start-explorer.sh
 sudo apt install -y dos2unix && dos2unix network.sh scripts/*.sh explorer/start-explorer.sh
 ```
